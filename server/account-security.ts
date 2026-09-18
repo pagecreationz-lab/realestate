@@ -1,8 +1,8 @@
 import {createHash,randomBytes} from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import {z} from 'zod';
-import {getSupabaseAdmin} from './config/supabase';
-import {ApiError,authenticateRequest} from './lib/api';
+import {getSupabaseAdmin} from './config/supabase.js';
+import {ApiError,authenticateRequest} from './lib/api.js';
 
 const digest=(s:string)=>createHash('sha256').update(s).digest('hex');
 const password=z.string().min(12).max(72).refine(v=>Buffer.byteLength(v,'utf8')<=72,'Password must not exceed 72 UTF-8 bytes');

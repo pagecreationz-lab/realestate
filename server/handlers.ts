@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { env } from './config/env';
-import { getSupabaseAdmin } from './config/supabase';
-import { ApiError, apiErrorResponse, authenticateRequest, authorizeRequest, credentialVersion, type UserRole } from './lib/api';
+import { env } from './config/env.js';
+import { getSupabaseAdmin } from './config/supabase.js';
+import { ApiError, apiErrorResponse, authenticateRequest, authorizeRequest, credentialVersion, type UserRole } from './lib/api.js';
 
 const loginSchema = z.object({
   email: z.string().email(),

@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import {createHmac} from 'node:crypto';
-import {getSupabaseAdmin} from '../config/supabase';
+import {getSupabaseAdmin} from '../config/supabase.js';
 import { ZodError } from 'zod';
-import { env } from '../config/env';
+import { env } from '../config/env.js';
 
 export type UserRole = 'user' | 'broker' | 'admin';
 

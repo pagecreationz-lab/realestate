@@ -1,6 +1,6 @@
 import {z} from 'zod';
-import {getSupabaseAdmin} from './config/supabase';
-import {ApiError,apiErrorResponse,authenticateRequest} from './lib/api';
+import {getSupabaseAdmin} from './config/supabase.js';
+import {ApiError,apiErrorResponse,authenticateRequest} from './lib/api.js';
 
 export async function handleSocial(request:Request){
  try{

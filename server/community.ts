@@ -1,10 +1,10 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import {serviceCategories} from '../components/community/service-categories';
-import {adminAccounts} from './admin-accounts';
-import {handleAccountSecurity} from './account-security';
-import { getSupabaseAdmin } from './config/supabase';
-import { ApiError, apiErrorResponse, authenticateRequest, type SessionUser } from './lib/api';
+import {serviceCategories} from '../components/community/service-categories.js';
+import {adminAccounts} from './admin-accounts.js';
+import {handleAccountSecurity} from './account-security.js';
+import { getSupabaseAdmin } from './config/supabase.js';
+import { ApiError, apiErrorResponse, authenticateRequest, type SessionUser } from './lib/api.js';
 
 const uuid=z.string().uuid();
 const BUCKET='creator-media';

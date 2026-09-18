@@ -1,6 +1,6 @@
 import {z} from 'zod';
-import {getSupabaseAdmin} from './config/supabase';
-import {ApiError,type SessionUser} from './lib/api';
+import {getSupabaseAdmin} from './config/supabase.js';
+import {ApiError,type SessionUser} from './lib/api.js';
 
 export const accountFields='id,name,email,mobile,roles,status,account_type,account_category,business_profile,verification,admin_notes,profile_version,created_at,updated_at';
 function checked<T extends {error:unknown}>(result:T){if(result.error)throw result.error;return result;}

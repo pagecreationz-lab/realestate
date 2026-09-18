@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { getSupabaseAdmin } from './config/supabase';
+import { getSupabaseAdmin } from './config/supabase.js';
 
 const accounts = [
   { name: 'Arun Prakash', email: 'buyer@easehome.in', password: 'User@123', roles: ['user'], accountType: 'individual' },

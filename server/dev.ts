@@ -1,8 +1,8 @@
 import 'dotenv/config';
-import {handleCommunity} from './community';
-import {handleSocial,handleVideoUpload} from './social';
+import {handleCommunity} from './community.js';
+import {handleSocial,handleVideoUpload} from './social.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { handleAnalytics, handleEnquiry, handleHealth, handleLogin, handleModeration, handleProperties, handleSiteVisit } from './handlers';
+import { handleAnalytics, handleEnquiry, handleHealth, handleLogin, handleModeration, handleProperties, handleSiteVisit } from './handlers.js';
 
 const port = Number(process.env.API_PORT ?? 4000);
 
