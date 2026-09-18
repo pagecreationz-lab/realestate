@@ -5,6 +5,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/reset-password", "destination": "/index.html" },
     { "source": "/login/user", "destination": "/index.html" },
     { "source": "/login/broker", "destination": "/index.html" },
     { "source": "/login/admin", "destination": "/index.html" },

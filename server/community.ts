@@ -1,5 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import {brokerPackages} from './broker-packages.js';
+import {heroSlides} from './hero-slides.js';
 import {serviceCategories} from '../components/community/service-categories.js';
 import {adminAccounts} from './admin-accounts.js';
 import {handleAccountSecurity} from './account-security.js';
@@ -13,12 +15,13 @@ const db=()=>getSupabaseAdmin();
 function checked<T extends {error: unknown}>(result:T):T {if(result.error)throw result.error;return result;}
 async function identity(request:Request){
  const token=await authenticateRequest(request);
- const {data}=checked(await db().from('users').select('id,name,email,roles,status').eq('id',token.id).maybeSingle());
+ const {data}=checked(await db().from('users').select('id,name,email,roles,status,account_category').eq('id',token.id).maybeSingle());
  if(!data||data.status!=='active')throw new ApiError(403,'Your account is not active.');
  return data as SessionUser & {name:string};
 }
 function admin(user:SessionUser){if(!user.roles.includes('admin'))throw new ApiError(403,'Super admin access required.');}
 function filterPosts(query:any,url:URL){
+ query=query.is('deleted_at',null);
  const type=z.enum(['','property','service']).parse(url.searchParams.get('postType')??'');if(type)query=query.eq('post_type',type);
  const service=z.enum(['',...serviceCategories]).parse(url.searchParams.get('serviceCategory')??'');if(service)query=query.eq('post_type','service').eq('service_category',service);
  const category=z.enum(['','user','broker','dealer','builder']).parse(url.searchParams.get('authorType')??'');
@@ -54,7 +57,7 @@ async function formatPosts(posts:Record<string,any>[],user?:SessionUser){
  const urls=media.length?checked(await db().storage.from(BUCKET).createSignedUrls(media.map(m=>m.path),300)).data??[]:[];
  return posts.map(p=>({ ...p,
   // Phone is disclosed only after an authenticated call action.
-  phone:undefined,hasPhone:Boolean(p.phone),author:authors.find(a=>a.id===p.author_id)?.name??'Creator',authorType:p.creator?.account_category==='customer'?'User':p.creator?.account_category??'Creator',creator:undefined,
+  phone:p.author_id===user?.id?p.phone:undefined,hasPhone:Boolean(p.phone),author:authors.find(a=>a.id===p.author_id)?.name??'Creator',authorType:p.creator?.account_category==='customer'?'User':p.creator?.account_category??'Creator',creator:undefined,
   media:media.filter(m=>m.post_id===p.id).map(m=>({id:m.id,mime:m.mime,url:urls.find(u=>u.path===m.path)?.signedUrl??''})),
   counts:{view:Number(counts.find(c=>c.post_id===p.id)?.views??0),like:Number(counts.find(c=>c.post_id===p.id)?.likes??0),share:Number(counts.find(c=>c.post_id===p.id)?.shares??0),save:Number(counts.find(c=>c.post_id===p.id)?.saves??0)},
   liked:events.some(e=>e.post_id===p.id&&e.kind==='like'),
@@ -71,6 +74,7 @@ async function threadFor(user:SessionUser,id:string){
 export async function handleCommunity(request:Request){
  try{
   const url=new URL(request.url);const resource=url.searchParams.get('resource')??'feed';
+  if(resource==='hero-slides'&&request.method==='GET')return await heroSlides();
   if(resource==='account'&&['GET','POST'].includes(request.method))return await handleAccountSecurity(request);
   if(request.method==='GET'&&resource==='feed'){
    const user=request.headers.has('authorization')?await identity(request):undefined;
@@ -81,6 +85,9 @@ export async function handleCommunity(request:Request){
   }
   const user=await identity(request);
   if(request.method==='GET'){
+   if(resource==='packages')return await brokerPackages(user);
+   if(resource==='admin-slides')return await heroSlides(user);
+   if(resource==='deleted-posts'){admin(user);const page=z.coerce.number().int().min(0).max(100000).parse(url.searchParams.get('page')??0);const {data,count}=checked(await db().from('creator_deletion_logs').select('id,post_id,actor_id,reason,snapshot,created_at',{count:'exact'}).order('created_at',{ascending:false}).order('id').range(page*25,page*25+24));return Response.json({logs:data??[],total:count??0});}
    if(resource==='contact-enquiries'){
     admin(user);
     const page=z.coerce.number().int().min(0).max(100000).parse(url.searchParams.get('page')??0);
@@ -145,6 +152,23 @@ export async function handleCommunity(request:Request){
   if(request.method!=='POST')throw new ApiError(405,'Method not allowed');
   const body=await request.json();
   const action=z.string().parse(body.action);
+  if(action==='save-package')return await brokerPackages(user,body);
+  if(action==='hero-slide')return await heroSlides(user,body);
+  if(action==='owner-post'){
+   const input=z.object({post:uuid,version:z.number().int().nonnegative(),operation:z.enum(['edit','delete'])}).parse(body);
+   const changes=input.operation==='edit'?z.object({caption:z.string().trim().min(10).max(3000),location:z.string().trim().min(2).max(150),price:z.number().min(0).max(1e12),intent:z.enum(['Sell','Rent']),phone:z.string().regex(/^\+?[0-9]{7,15}$/).or(z.literal('')),serviceCategory:z.enum(serviceCategories).optional()}).parse(body.changes):{};
+   const reason=input.operation==='delete'?z.string().trim().min(5).max(500).parse(body.reason):'';
+   if(input.operation==='edit'&&body.media!==undefined){
+    const ids=z.array(uuid).min(1).max(8).refine(v=>new Set(v).size===v.length).parse(body.media);
+    const {data:owned}=checked(await db().from('creator_posts').select('id').eq('id',input.post).eq('author_id',user.id).is('deleted_at',null).maybeSingle());
+    if(!owned)throw new ApiError(403,'You can only edit your own posts.');
+    const {data:files}=checked(await db().from('creator_media').select('id,path,bytes,mime,post_id').in('id',ids).eq('owner_id',user.id));
+    if(files?.length!==ids.length||files.some(f=>f.post_id&&f.post_id!==input.post))throw new ApiError(400,'One or more files are unavailable.');
+    for(const file of files){const {data:info,error}=await db().storage.from(BUCKET).info(file.path);if(error||!info||Number(info.size)!==Number(file.bytes)||info.contentType!==file.mime)throw new ApiError(400,'An uploaded file is missing or does not match its declared type/size.');}
+    checked(await db().rpc('creator_owner_edit_media',{p_user:user.id,p_post:input.post,p_version:input.version,p_changes:changes,p_media:ids}));return Response.json({ok:true});
+   }
+   checked(await db().rpc('creator_owner_change',{p_user:user.id,p_post:input.post,p_version:input.version,p_action:input.operation,p_changes:changes,p_reason:reason}));return Response.json({ok:true});
+  }
   if(action==='update-account')return await adminAccounts(user,url,body);
   if(action==='upload'){
    await rateLimit(user.id,'creator_media','owner_id',20,3600);
@@ -224,6 +248,12 @@ export async function handleCommunity(request:Request){
  }catch(error){
   if(error&&typeof error==='object'&&'code' in error){
    const e=error as {code:string;message?:string};
+   if(['42P01','PGRST205'].includes(e.code)&&e.message?.includes('broker_packages'))return Response.json({message:'Apply the broker-packages migration to enable package plans.'},{status:503});
+   if(e.code==='PGRST202'&&e.message?.includes('creator_owner_edit_media'))return Response.json({message:'Apply the owner-post-media migration to enable image replacement.'},{status:503});
+   if(['42P01','PGRST205'].includes(e.code)&&e.message?.includes('hero_settings'))return Response.json({message:'Apply the hero-playback migration to manage autoplay and single-slide mode.'},{status:503});
+   if(['42703','PGRST204'].includes(e.code)&&e.message?.includes('media_type'))return Response.json({message:'Apply the hero-media migration to enable carousel images and videos.'},{status:503});
+   if(['42P01','PGRST205'].includes(e.code)&&e.message?.includes('hero_slides'))return Response.json({message:'Apply the hero-slides migration to manage the carousel.'},{status:503});
+   if(['42703','42P01','PGRST204','PGRST205','PGRST202'].includes(e.code)&&/deleted_at|edit_version|creator_deletion_logs|creator_owner_change/.test(e.message??''))return Response.json({message:'Apply the owner-post-management migration to enable post editing and deletion logs.'},{status:503});
    if(['42703','42P01','PGRST204','PGRST202'].includes(e.code)&&/post_type|service_category|creator_submit_service/.test(e.message??''))return Response.json({message:'Apply the business-services migration to enable service posts.'},{status:503});
    if(['42P01','PGRST205'].includes(e.code)&&e.message?.includes('creator_comments'))return Response.json({message:'Apply the post-comments database migration to enable comments.'},{status:503});
    if(['42P01','PGRST205','PGRST202'].includes(e.code)&&/account_password_resets|account_issue_reset|account_consume_reset|account_update_profile/.test(e.message??''))return Response.json({message:'Apply the account-security database migration to enable profile updates and customer password resets.'},{status:503});
