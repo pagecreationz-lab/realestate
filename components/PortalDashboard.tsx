@@ -1,5 +1,3 @@
-'use client';
-
 import {
   ArrowRight,
   BadgeCheck,
@@ -28,12 +26,11 @@ import {
   Sparkles,
   TrendingUp,
   UserCheck,
-  UserRound,
   UsersRound,
   Video,
   X,
 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { PortalRole, properties, roleMeta } from './data';
 
@@ -104,7 +101,7 @@ export default function PortalDashboard({ role }: { role: PortalRole }) {
     <main className={'dashboard-shell dashboard-' + role}>
       <aside className={sidebarOpen ? 'dashboard-sidebar open' : 'dashboard-sidebar'}>
         <div className="dashboard-logo-row">
-          <Link className="brand" href="/"><span className="brand-mark"><Home size={17} /></span><span>EASE HOME</span></Link>
+          <Link className="brand" to="/"><span className="brand-mark"><Home size={17} /></span><span>EASE HOME</span></Link>
           <button className="icon-button close-sidebar" onClick={() => setSidebarOpen(false)}><X /></button>
         </div>
         <p className="portal-badge">{meta.label.toUpperCase()} PORTAL</p>
@@ -134,7 +131,7 @@ export default function PortalDashboard({ role }: { role: PortalRole }) {
         <div className="dashboard-content">
           <div className="dashboard-welcome">
             <div><p className="eyebrow"><span /> {meta.label.toUpperCase()} WORKSPACE</p><h1>{role === 'admin' ? 'Good afternoon, Anita.' : role === 'broker' ? 'Welcome back, Ravi.' : 'Good afternoon, Arun.'}</h1><p>{role === 'admin' ? '36 listings and videos need a decision today.' : role === 'broker' ? 'Six new buyer enquiries arrived since yesterday.' : 'Four new properties match your Medavakkam requirement.'}</p></div>
-            {role === 'user' && <Link href="/#search-marketplace" className="primary-button inline-button"><Search size={16} /> Find properties</Link>}
+            {role === 'user' && <Link to="/#search-marketplace" className="primary-button inline-button"><Search size={16} /> Find properties</Link>}
             {role === 'broker' && <button className="primary-button inline-button" onClick={() => notify('New property form opened')}><Plus size={16} /> Add property</button>}
             {role === 'admin' && <button className="primary-button inline-button" onClick={() => setActive('Moderation')}><ShieldCheck size={16} /> Review queue</button>}
           </div>
@@ -161,7 +158,7 @@ function UserOverview({ notify }: { notify: (message: string) => void }) {
     <>
       <div className="dashboard-two-col">
         <section className="dashboard-panel">
-          <div className="panel-heading"><div><h2>Matched for you</h2><p>Based on your Medavakkam requirement</p></div><Link href="/#search-marketplace">View all <ArrowRight size={14} /></Link></div>
+          <div className="panel-heading"><div><h2>Matched for you</h2><p>Based on your Medavakkam requirement</p></div><Link to="/#search-marketplace">View all <ArrowRight size={14} /></Link></div>
           <div className="dashboard-property-list">
             {properties.slice(0, 3).map((property) => (
               <article key={property.id}><img src={property.image} alt="" /><div><span>{property.verified && <BadgeCheck size={13} />} {property.seller}</span><h3>{property.title}</h3><p>{property.location} · {property.area}</p><strong>{property.price}</strong></div><button onClick={() => notify('Property saved')}><Heart size={18} /></button></article>

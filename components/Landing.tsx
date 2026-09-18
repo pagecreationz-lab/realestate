@@ -1,5 +1,3 @@
-'use client';
-
 import {
   ArrowRight,
   BadgeCheck,
@@ -31,7 +29,7 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { FormEvent, useMemo, useState } from 'react';
 import { properties, Property } from './data';
 
@@ -39,7 +37,7 @@ type ViewMode = 'list' | 'map' | 'video';
 
 function Logo() {
   return (
-    <Link className="brand" href="#top" aria-label="EASE HOME home">
+    <Link className="brand" to="/#top" aria-label="EASE HOME home">
       <span className="brand-mark"><Home size={18} strokeWidth={2.4} /></span>
       <span>EASE HOME</span>
     </Link>
@@ -112,7 +110,7 @@ export default function Landing() {
         </nav>
         <div className="header-actions">
           <button className="header-link" type="button" aria-label="Notifications"><Bell size={18} /></button>
-          <Link className="text-button" href="/login/broker">Post property</Link>
+          <Link className="text-button" to="/login/broker">Post property</Link>
           <button className="primary-button compact" type="button" onClick={() => setLoginOpen(true)}>Sign in <ChevronDown size={15} /></button>
           <button className="icon-button mobile-menu-button" type="button" aria-label="Open menu" onClick={() => setMobileOpen(true)}><Menu /></button>
         </div>
@@ -230,7 +228,7 @@ export default function Landing() {
       {compared.length > 0 && <div className="compare-bar"><span><SquareStack size={18} /><strong>{compared.length}</strong> selected for comparison</span><div><button onClick={() => setCompared([])}>Clear</button><button className="primary-button" disabled={compared.length < 2}>Compare properties</button></div></div>}
 
       <section className="post-section" id="post">
-        <div><p className="eyebrow"><span /> BUYER REQUIREMENTS</p><h2>Tell the market<br /><em>what you need.</em></h2><p>Post one clear requirement and let verified owners, brokers and builders respond with relevant matches.</p><Link className="primary-button inline-button" href="/login/user">Post your requirement <ArrowRight size={16} /></Link></div>
+        <div><p className="eyebrow"><span /> BUYER REQUIREMENTS</p><h2>Tell the market<br /><em>what you need.</em></h2><p>Post one clear requirement and let verified owners, brokers and builders respond with relevant matches.</p><Link className="primary-button inline-button" to="/login/user">Post your requirement <ArrowRight size={16} /></Link></div>
         <div className="requirement-card"><div><span className="avatar">AR</span><p><strong>Arun R.</strong><small>Buyer · Chennai</small></p><span className="match-chip">18 matches</span></div><h3>Looking for a ready-to-move 2 BHK in Medavakkam</h3><div className="requirement-meta"><span>₹50–60 L</span><span>2 BHK</span><span>Owner preferred</span><span>Ready to move</span></div><div className="requirement-journey"><span><Check /> Posted</span><i /><span><Sparkles /> Matched</span><i /><span><MessageCircle /> Connect</span><i /><span><CalendarDays /> Visit</span></div></div>
       </section>
 
@@ -241,13 +239,13 @@ export default function Landing() {
 
       <section className="portal-section">
         <div><p className="eyebrow"><span /> SEPARATE ROLE PORTALS</p><h2>One marketplace.<br /><em>Three focused views.</em></h2><p>Each portal keeps the right actions simple while sharing the same verified listings, enquiries and site-visit workflow.</p></div>
-        <div className="portal-grid"><Link href="/login/user"><span><UserRound /></span><small>USER PORTAL</small><h3>Discover, save & visit</h3><p>Search, Reels, requirements, enquiries and visits.</p><ArrowRight /></Link><Link href="/login/broker"><span><UsersRound /></span><small>BROKER PORTAL</small><h3>List, promote & follow up</h3><p>Properties, Reel publishing, leads and visit schedules.</p><ArrowRight /></Link><Link href="/login/admin"><span><ShieldCheck /></span><small>ADMIN PORTAL</small><h3>Review, verify & grow</h3><p>Moderation, users, analytics, reports and approvals.</p><ArrowRight /></Link></div>
+        <div className="portal-grid"><Link to="/login/user"><span><UserRound /></span><small>USER PORTAL</small><h3>Discover, save & visit</h3><p>Search, Reels, requirements, enquiries and visits.</p><ArrowRight /></Link><Link to="/login/broker"><span><UsersRound /></span><small>BROKER PORTAL</small><h3>List, promote & follow up</h3><p>Properties, Reel publishing, leads and visit schedules.</p><ArrowRight /></Link><Link to="/login/admin"><span><ShieldCheck /></span><small>ADMIN PORTAL</small><h3>Review, verify & grow</h3><p>Moderation, users, analytics, reports and approvals.</p><ArrowRight /></Link></div>
       </section>
 
-      <footer><div><Logo /><p>Video-first property discovery backed by serious real estate information.</p></div><div><strong>Explore</strong><a href="#reels">Property Reels</a><a href="#search-marketplace">Search</a><a href="#services">Services</a></div><div><strong>Portals</strong><Link href="/login/user">User login</Link><Link href="/login/broker">Broker login</Link><Link href="/login/admin">Admin login</Link></div><div><strong>Trust</strong><span>Verified listings</span><span>Report fraud</span><span>Privacy & safety</span></div><p>© 2026 EASE HOME. Discover. Search. Connect. Visit. Verify. Finance. Register.</p></footer>
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation"><a href="#top"><Home /><span>Home</span></a><a href="#reels"><Play /><span>Reels</span></a><a href="#search-marketplace"><Search /><span>Search</span></a><Link href="/login/broker"><Building2 /><span>Post</span></Link><button onClick={() => setLoginOpen(true)}><UserRound /><span>Profile</span></button></nav>
+      <footer><div><Logo /><p>Video-first property discovery backed by serious real estate information.</p></div><div><strong>Explore</strong><a href="#reels">Property Reels</a><a href="#search-marketplace">Search</a><a href="#services">Services</a></div><div><strong>Portals</strong><Link to="/login/user">User login</Link><Link to="/login/broker">Broker login</Link><Link to="/login/admin">Admin login</Link></div><div><strong>Trust</strong><span>Verified listings</span><span>Report fraud</span><span>Privacy & safety</span></div><p>© 2026 EASE HOME. Discover. Search. Connect. Visit. Verify. Finance. Register.</p></footer>
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation"><a href="#top"><Home /><span>Home</span></a><a href="#reels"><Play /><span>Reels</span></a><a href="#search-marketplace"><Search /><span>Search</span></a><Link to="/login/broker"><Building2 /><span>Post</span></Link><button onClick={() => setLoginOpen(true)}><UserRound /><span>Profile</span></button></nav>
 
-      {loginOpen && <Modal onClose={() => setLoginOpen(false)} labelledBy="portal-choice-title"><div className="portal-modal"><p className="eyebrow"><span /> SIGN IN</p><h2 id="portal-choice-title">Choose your portal</h2><p>Each role opens a workspace designed around its next actions.</p><div className="portal-choice-grid"><Link href="/login/user"><UserRound /><span><strong>User portal</strong><small>Buyers, owners and renters</small></span><ArrowRight /></Link><Link href="/login/broker"><UsersRound /><span><strong>Broker portal</strong><small>Listings, leads and visits</small></span><ArrowRight /></Link><Link href="/login/admin"><ShieldCheck /><span><strong>Admin portal</strong><small>Moderation and platform control</small></span><ArrowRight /></Link></div></div></Modal>}
+      {loginOpen && <Modal onClose={() => setLoginOpen(false)} labelledBy="portal-choice-title"><div className="portal-modal"><p className="eyebrow"><span /> SIGN IN</p><h2 id="portal-choice-title">Choose your portal</h2><p>Each role opens a workspace designed around its next actions.</p><div className="portal-choice-grid"><Link to="/login/user"><UserRound /><span><strong>User portal</strong><small>Buyers, owners and renters</small></span><ArrowRight /></Link><Link to="/login/broker"><UsersRound /><span><strong>Broker portal</strong><small>Listings, leads and visits</small></span><ArrowRight /></Link><Link to="/login/admin"><ShieldCheck /><span><strong>Admin portal</strong><small>Moderation and platform control</small></span><ArrowRight /></Link></div></div></Modal>}
 
       {selected && <Modal onClose={() => setSelected(null)} labelledBy="property-modal-title"><div className="property-modal"><img src={selected.image} alt={selected.title} /><div className="property-modal-content">{selected.verified && <span className="verified-dark"><BadgeCheck size={14} /> EASE VERIFIED</span>}<h2 id="property-modal-title">{selected.title}</h2><p className="location-line"><MapPin size={15} /> {selected.location}</p><strong className="modal-price">{selected.price}</strong><div className="spec-row"><span>{selected.type}</span><span>{selected.bhk ? String(selected.bhk) + ' BHK' : selected.area}</span><span>{selected.area}</span><span>{selected.status}</span></div><p>{selected.description}</p><div className="approval-box"><ShieldCheck /><span><strong>{selected.approval}</strong><small>{selected.rera ? 'RERA: ' + selected.rera : 'Verification documents available'}</small></span></div><div className="amenity-row">{selected.amenities.map((amenity) => <span key={amenity}><Check size={13} /> {amenity}</span>)}</div><div className="property-actions"><button className="outline-button"><MessageCircle size={16} /> Enquire</button><button className="primary-button" onClick={() => { setVisitProperty(selected); setSelected(null); setVisitSent(false); }}><CalendarDays size={16} /> Book site visit</button></div></div></div></Modal>}
 

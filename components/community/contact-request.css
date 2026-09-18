@@ -1,0 +1,16 @@
+.cs-app .cs-contact{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.cs-app .cs-contact form{display:grid;gap:18px;min-width:0}
+.cs-app .cs-contact fieldset{border:0;padding:0;margin:0;min-width:0;display:grid;gap:10px}
+.cs-app .cs-contact legend{padding:0;margin-bottom:12px;font-size:14px;font-weight:600}
+.cs-app .cs-contact label.cs-check{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;margin:0;padding:8px 0;font-size:14px!important;line-height:1.5;text-align:left}
+.cs-app .cs-contact label.cs-check input{width:18px!important;height:18px;min-width:18px;flex:0 0 18px;margin:0!important;padding:0!important;accent-color:#249bd1}
+.cs-app .cs-contact form>label{display:grid;gap:8px;margin:0;min-width:0}
+.cs-app .cs-contact form>label>input{width:100%;min-width:0;max-width:100%;font-size:16px}
+.cs-app .cs-contact form>p{margin:0;line-height:1.6}
+.cs-app .cs-contact .cs-primary{width:100%}
+.cs-app dialog.cs-contact-dialog{position:fixed;inset:0;margin:auto;width:560px;max-width:calc(100vw - 28px);max-height:calc(100dvh - 32px);padding:0 24px 24px;border:1px solid #d3e8f5;border-radius:18px;background:#f7fcff;color:#162e3f;overflow-y:auto;overscroll-behavior:contain;box-shadow:0 24px 80px #102f4a40}
+.cs-contact-dialog::backdrop{background:rgba(13,35,54,.6)}
+.cs-app .cs-contact-heading{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px 0;background:#f7fcff;border-bottom:1px solid #deebf4;margin-bottom:10px}
+.cs-app .cs-contact-heading h3{margin:0;font-size:18px}
+.cs-app .cs-contact-heading button{display:grid;place-items:center;width:30px;height:40px;flex:0 0 40px;border-radius:50%;background:#e4f2fb;color:#295574}
+@media(max-width:480px){.cs-app dialog.cs-contact-dialog{padding:0 18px 20px}.cs-app .cs-contact form{gap:12px}}

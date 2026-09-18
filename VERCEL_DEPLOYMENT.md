@@ -6,9 +6,9 @@ Create a project at <https://supabase.com/dashboard>. From this project folder,
 apply the included versioned migration:
 
 ```powershell
-npx.cmd supabase login
-npx.cmd supabase link --project-ref <your-project-ref>
-npx.cmd supabase db push
+npx supabase login
+npx supabase link --project-ref <your-project-ref>
+npx supabase db push
 ```
 
 The schema is stored in
@@ -25,7 +25,6 @@ values for Production, Preview, and Development as appropriate:
 SUPABASE_URL=https://<your-project-ref>.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_<your-server-secret>
 JWT_SECRET=<a-long-random-secret>
-NEXT_PUBLIC_SITE_URL=https://<your-production-domain>
 ```
 
 Find the project URL and secret key under **Supabase → Project Settings → API**.
@@ -39,20 +38,20 @@ Copy `.env.example` to `.env.local`, add the Supabase values and `JWT_SECRET`,
 then seed the three demo portal accounts:
 
 ```powershell
-npm.cmd run api:seed
+npm run api:seed
 ```
 
 ## 4. Deploy
 
 Push the project to GitHub and import the repository at <https://vercel.com/new>.
-Vercel detects the included Next.js and `vercel.json` configuration. Deploy from
+Vercel detects the included Vite 8.2.2 and `vercel.json` configuration. Deploy from
 the dashboard, or use the CLI:
 
 ```powershell
-npx.cmd vercel
-npx.cmd vercel --prod
+npx vercel
+npx vercel --prod
 ```
 
-The website and native Next.js API routes share one origin. The API is available
+The Vite website and Vercel Functions share one origin. The API is available
 under `/api/*`, including `/api/health`, `/api/auth/login`, and `/api/properties`.
-The Supabase secret is read only by these server routes.
+The Supabase secret is read only by these server-side functions.

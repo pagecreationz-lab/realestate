@@ -1,7 +1,5 @@
-'use client';
-
 import { ArrowLeft, ArrowRight, BadgeCheck, Eye, EyeOff, Home, KeyRound, LockKeyhole, ShieldCheck, UserRound, UsersRound } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { FormEvent, useState } from 'react';
 import { PortalRole, roleMeta } from './data';
 
@@ -57,7 +55,7 @@ export default function LoginPortal({ role }: { role: PortalRole }) {
   return (
     <main className={'login-layout role-' + role}>
       <section className="login-brand-panel">
-        <Link className="brand light-brand" href="/">
+        <Link className="brand light-brand" to="/">
           <span className="brand-mark"><Home size={18} /></span><span>EASE HOME</span>
         </Link>
         <div>
@@ -75,7 +73,7 @@ export default function LoginPortal({ role }: { role: PortalRole }) {
       </section>
 
       <section className="login-form-panel">
-        <Link className="back-link" href="/"><ArrowLeft size={16} /> Back to marketplace</Link>
+        <Link className="back-link" to="/"><ArrowLeft size={16} /> Back to marketplace</Link>
         <form className="login-form" onSubmit={submit}>
           <span className="login-kicker">WELCOME BACK</span>
           <h2>Sign in to the {meta.label} portal</h2>
@@ -86,7 +84,7 @@ export default function LoginPortal({ role }: { role: PortalRole }) {
           {error && <p className="login-error" role="alert">{error}</p>}
           <button className="primary-button login-submit" type="submit" disabled={busy}>{busy ? 'Opening portal…' : <>Sign in <ArrowRight size={17} /></>}</button>
           <div className="demo-box"><strong>Demo access</strong><span>{meta.demoEmail}</span><span>{meta.demoPassword}</span></div>
-          <p className="switch-role">Need another portal? <Link href="/login/user">User</Link><Link href="/login/broker">Broker</Link><Link href="/login/admin">Admin</Link></p>
+          <p className="switch-role">Need another portal? <Link to="/login/user">User</Link><Link to="/login/broker">Broker</Link><Link to="/login/admin">Admin</Link></p>
         </form>
       </section>
     </main>

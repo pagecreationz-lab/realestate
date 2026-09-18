@@ -10,11 +10,12 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
-# next.js
+# builds
+/dist/
 /.next/
-/.vinext/
-/out/
 *.tsbuildinfo
 
 # misc
@@ -29,11 +30,11 @@ yarn-error.log*
 
 # local environment
 .env*
+!.env.example
 
 # deployment and generated files
-.vercel
-next-env.d.ts
-/dist/
+/.vercel/
 /.wrangler/
 /outputs/
 /work/
+
