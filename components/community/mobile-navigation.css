@@ -1,0 +1,21 @@
+.cs-mobile-settings{display:none}
+.cs-app .cs-top-actions>.cs-primary{height:44px;min-height:44px;white-space:nowrap;flex-shrink:0;line-height:1;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;padding:0 16px}
+.cs-app .cs-top-actions>.cs-primary svg{flex-shrink:0}
+@media(max-width:700px){
+ .cs-app .cs-top-actions{gap:8px;flex-shrink:0}
+ .cs-app .cs-top-actions>.cs-primary{padding:0 12px}
+}
+@media(max-width:380px){
+ .cs-app .cs-topbar{padding-inline:10px;gap:8px}
+ .cs-app .cs-topbar .cs-brand{font-size:18px;gap:3px}
+ .cs-app .cs-top-actions{gap:6px}
+ .cs-app .cs-top-actions>.cs-primary{padding:0 8px;gap:5px}
+}
+@media(max-width:700px){
+ .cs-app .cs-member-nav nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:visible;gap:4px;padding-bottom:env(safe-area-inset-bottom)}
+ .cs-app .cs-member-nav nav .cs-secondary-nav,.cs-app .cs-member-nav nav .cs-menu-logout{display:none}
+ .cs-app .cs-member-nav nav button{min-width:0;width:100%;margin:0;padding:10px 3px;justify-content:center;font-size:11px}
+ .cs-mobile-settings{display:grid;gap:10px;background:#fff;border:1px solid var(--cs-line);border-radius:14px;padding:18px;margin-bottom:20px}
+ .cs-mobile-settings h2{margin:0 0 8px;font-size:18px}
+ .cs-mobile-settings button{display:flex;align-items:center;gap:12px;text-align:left;padding:14px;border-radius:8px;background:#e8f4fc;color:#218fbd;min-height:48px}
+}

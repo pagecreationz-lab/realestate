@@ -1,0 +1,20 @@
+import {test,expect} from '@playwright/test';
+test('mobile has four destinations and secondary links in Settings',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ const user={id:'test',name:'Test',email:'test@example.test',roles:['user'],mobile:'9876543210'};
+ await page.addInitScript(user=>localStorage.setItem('ease-home-session',JSON.stringify({token:'test',user,role:'user'})),user);
+ await page.route('**/api/community?*',route=>route.fulfill({json:{user,posts:[],slides:[]}}));
+ await page.goto('/');
+ const nav=page.locator('.cs-member-nav nav');
+ await expect(nav.locator('button:visible')).toHaveText(['For you','ReelsPLAY','Messages','Settings']);
+ await nav.getByRole('button',{name:'Settings',exact:true}).click();
+ const more=page.getByRole('region',{name:'More destinations'});
+ await expect(more.getByRole('button')).toHaveText(['Business network','Saved','My posts','Wallet']);
+ await more.getByRole('button',{name:'My posts',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Your stories. Your spaces.'})).toBeVisible();
+ await nav.getByRole('button',{name:'Settings',exact:true}).click();
+ await expect(page.getByRole('button',{name:'Log out',exact:true})).toBeVisible();
+ await page.setViewportSize({width:1440,height:1000});
+ await expect(more).toBeHidden();
+ await expect(nav.getByRole('button',{name:'Business network',exact:true})).toBeVisible();
+});
