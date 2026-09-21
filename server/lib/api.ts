@@ -38,8 +38,9 @@ export async function authenticateRequest(request: Request) {
   } catch {
     throw new ApiError(401, 'Invalid or expired session');
   }
-  const {data:user,error}=await getSupabaseAdmin().from('users').select('id,email,roles,status,password_hash').eq('id',claims.id).maybeSingle();
+  const {data:user,error}=await getSupabaseAdmin().from('users').select('id,email,roles,status,password_hash,verification').eq('id',claims.id).maybeSingle();
   if(error)throw error;
+  if(user?.verification?.email_required===true&&user.verification?.email!==true)throw new ApiError(403,'Verify your email before signing in.');
   if(!user||user.status!=='active'||!claims.credentialVersion||claims.credentialVersion!==credentialVersion(user.password_hash))throw new ApiError(401,'Session expired. Please sign in again.');
   return {id:user.id,email:user.email,roles:user.roles} as SessionUser;
 }

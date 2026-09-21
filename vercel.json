@@ -5,6 +5,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/verify-email", "destination": "/index.html" },
+    { "source": "/signup", "destination": "/index.html" },
+    { "source": "/signin", "destination": "/index.html" },
+    { "source": "/signin/user", "destination": "/index.html" },
+    { "source": "/signin/broker", "destination": "/index.html" },
+    { "source": "/signin/admin", "destination": "/index.html" },
     { "source": "/reset-password", "destination": "/index.html" },
     { "source": "/login/user", "destination": "/index.html" },
     { "source": "/login/broker", "destination": "/index.html" },

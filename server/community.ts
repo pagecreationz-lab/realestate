@@ -1,5 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import {createDriveUpload,validateDriveMedia,driveMediaUrl,handleDriveSettings} from './google-drive.js';
+import {signup} from './signup.js';
+import {verificationEndpoint} from './email-verification.js';
 import {brokerPackages} from './broker-packages.js';
 import {heroSlides} from './hero-slides.js';
 import {serviceCategories} from '../components/community/service-categories.js';
@@ -54,11 +57,12 @@ async function formatPosts(posts:Record<string,any>[],user?:SessionUser){
  ]);
  const media=checked(mediaResult).data??[];const counts=checked(countsResult).data??[];const authors=checked(authorsResult).data??[];
  const events=user?checked(await db().from('creator_events').select('post_id,kind').in('post_id',ids).eq('user_id',user.id)).data??[]:[];
- const urls=media.length?checked(await db().storage.from(BUCKET).createSignedUrls(media.map(m=>m.path),300)).data??[]:[];
+ const legacy=media.filter(m=>!m.path.startsWith('drive:'));
+ const urls=legacy.length?checked(await db().storage.from(BUCKET).createSignedUrls(legacy.map(m=>m.path),300)).data??[]:[];
  return posts.map(p=>({ ...p,
   // Phone is disclosed only after an authenticated call action.
   phone:p.author_id===user?.id?p.phone:undefined,hasPhone:Boolean(p.phone),author:authors.find(a=>a.id===p.author_id)?.name??'Creator',authorType:p.creator?.account_category==='customer'?'User':p.creator?.account_category??'Creator',creator:undefined,
-  media:media.filter(m=>m.post_id===p.id).map(m=>({id:m.id,mime:m.mime,url:urls.find(u=>u.path===m.path)?.signedUrl??''})),
+  media:media.filter(m=>m.post_id===p.id).map(m=>({id:m.id,mime:m.mime,url:m.path.startsWith('drive:')?driveMediaUrl(m.id,{id:p.id,edit_version:p.edit_version},Boolean(user&&(p.author_id===user.id||user.roles.includes('admin')))):urls.find(u=>u.path===m.path)?.signedUrl??''})),
   counts:{view:Number(counts.find(c=>c.post_id===p.id)?.views??0),like:Number(counts.find(c=>c.post_id===p.id)?.likes??0),share:Number(counts.find(c=>c.post_id===p.id)?.shares??0),save:Number(counts.find(c=>c.post_id===p.id)?.saves??0)},
   liked:events.some(e=>e.post_id===p.id&&e.kind==='like'),
   saved:events.some(e=>e.post_id===p.id&&e.kind==='save'),
@@ -74,6 +78,9 @@ async function threadFor(user:SessionUser,id:string){
 export async function handleCommunity(request:Request){
  try{
   const url=new URL(request.url);const resource=url.searchParams.get('resource')??'feed';
+  if(resource==='drive-settings')return await handleDriveSettings(request);
+  if(resource==='signup')return await signup(request);
+  if(resource==='email-verification'||resource==='email-settings')return await verificationEndpoint(request,resource==='email-settings');
   if(resource==='hero-slides'&&request.method==='GET')return await heroSlides();
   if(resource==='account'&&['GET','POST'].includes(request.method))return await handleAccountSecurity(request);
   if(request.method==='GET'&&resource==='feed'){
@@ -162,9 +169,9 @@ export async function handleCommunity(request:Request){
     const ids=z.array(uuid).min(1).max(8).refine(v=>new Set(v).size===v.length).parse(body.media);
     const {data:owned}=checked(await db().from('creator_posts').select('id').eq('id',input.post).eq('author_id',user.id).is('deleted_at',null).maybeSingle());
     if(!owned)throw new ApiError(403,'You can only edit your own posts.');
-    const {data:files}=checked(await db().from('creator_media').select('id,path,bytes,mime,post_id').in('id',ids).eq('owner_id',user.id));
+    const {data:files}=checked(await db().from('creator_media').select('id,path,bytes,mime,post_id,owner_id').in('id',ids).eq('owner_id',user.id));
     if(files?.length!==ids.length||files.some(f=>f.post_id&&f.post_id!==input.post))throw new ApiError(400,'One or more files are unavailable.');
-    for(const file of files){const {data:info,error}=await db().storage.from(BUCKET).info(file.path);if(error||!info||Number(info.size)!==Number(file.bytes)||info.contentType!==file.mime)throw new ApiError(400,'An uploaded file is missing or does not match its declared type/size.');}
+    for(const file of files){if(file.path.startsWith('drive:')){await validateDriveMedia(file);continue;}const {data:info,error}=await db().storage.from(BUCKET).info(file.path);if(error||!info||Number(info.size)!==Number(file.bytes)||info.contentType!==file.mime)throw new ApiError(400,'An uploaded file is missing or does not match its declared type/size.');}
     checked(await db().rpc('creator_owner_edit_media',{p_user:user.id,p_post:input.post,p_version:input.version,p_changes:changes,p_media:ids}));return Response.json({ok:true});
    }
    checked(await db().rpc('creator_owner_change',{p_user:user.id,p_post:input.post,p_version:input.version,p_action:input.operation,p_changes:changes,p_reason:reason}));return Response.json({ok:true});
@@ -173,10 +180,9 @@ export async function handleCommunity(request:Request){
   if(action==='upload'){
    await rateLimit(user.id,'creator_media','owner_id',20,3600);
    const input=z.object({mime:z.enum(['image/jpeg','image/png','image/webp','video/mp4','video/webm']),bytes:z.number().int().positive().max(50*1024*1024)}).parse(body);
-   const id=randomUUID();const path=`${user.id}/${id}.${mediaTypes[input.mime]}`;
+   const id=randomUUID();const ticket=await createDriveUpload(user.id,id,input.mime,input.bytes,mediaTypes[input.mime]);const path=ticket.path;
    checked(await db().from('creator_media').insert({id,owner_id:user.id,path,mime:input.mime,bytes:input.bytes}));
-   const {data}=checked(await db().storage.from(BUCKET).createSignedUploadUrl(path));
-   return Response.json({id,url:data!.signedUrl});
+   return Response.json({id,url:ticket.url,headers:ticket.headers});
   }
   if(action==='post'){
    await rateLimit(user.id,'creator_posts','author_id',10,3600);
@@ -184,7 +190,7 @@ export async function handleCommunity(request:Request){
    if(input.postType==='service'&&!input.serviceCategory)throw new ApiError(400,'Select a service category.');
    const {data:media}=checked(await db().from('creator_media').select('*').in('id',input.media).eq('owner_id',user.id).is('post_id',null));
    if(media?.length!==input.media.length)throw new ApiError(400,'One or more files are not available. Upload them again.');
-   for(const m of media){const {data:info,error}=await db().storage.from(BUCKET).info(m.path);if(error||!info||Number(info.size)!==Number(m.bytes)||info.contentType!==m.mime)throw new ApiError(400,'A file is missing or does not match the declared size/type.');}
+   for(const m of media){if(m.path.startsWith('drive:')){await validateDriveMedia(m);continue;}const {data:info,error}=await db().storage.from(BUCKET).info(m.path);if(error||!info||Number(info.size)!==Number(m.bytes)||info.contentType!==m.mime)throw new ApiError(400,'A file is missing or does not match the declared size/type.');}
    const result=checked(await db().rpc(input.postType==='service'?'creator_submit_service':'creator_submit',{p_user:user.id,p_caption:input.caption,p_location:input.location,...(input.postType==='service'?{p_category:input.serviceCategory}:{p_intent:input.intent}),p_price:input.price,p_phone:input.phone||null,p_media:input.media}));
    return Response.json({id:result.data,status:'pending'}, {status:201});
   }
@@ -270,3 +276,4 @@ export async function handleCommunity(request:Request){
   return apiErrorResponse(error);
  }
 }
+

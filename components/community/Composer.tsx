@@ -15,7 +15,7 @@ export default function Composer({close,done}:{close:()=>void;done:()=>void}){
     const existing=uploaded.find(u=>u.file===file);if(existing){ids.push(existing.id);continue;}
     setProgress(`Uploading ${i+1} of ${files.length} — ${file.name}`);
     const ticket=await community('',{action:'upload',mime:file.type,bytes:file.size});
-    const response=await fetch(ticket.url,{method:'PUT',headers:{'Content-Type':file.type,'x-upsert':'false'},body:file});
+    const response=await fetch(ticket.url,{method:'PUT',headers:ticket.headers??{'Content-Type':file.type,'x-upsert':'false'},body:file});
     if(!response.ok)throw new Error('Upload failed. Your post has not been published. Please retry.');
     ids.push(ticket.id);setUploaded(previous=>[...previous,{file,id:ticket.id}]);
    }
@@ -38,3 +38,4 @@ export default function Composer({close,done}:{close:()=>void;done:()=>void}){
  {error&&<p className="cs-error" role="alert">{error}</p>}{busy&&<p role="status">{progress}</p>}<button className="cs-primary" disabled={busy}>{busy?'Uploading…':'Send for approval'}<Send size={16}/></button>
  </form></section></div>;
 }
+

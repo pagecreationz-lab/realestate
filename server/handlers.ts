@@ -47,7 +47,7 @@ export async function handleLogin(request: Request) {
     const input = loginSchema.parse(await request.json());
     const { data: user, error } = await getSupabaseAdmin()
       .from('users')
-      .select('id, name, email, password_hash, roles, status')
+      .select('id, name, email, password_hash, roles, status, verification')
       .eq('email', input.email.toLowerCase())
       .eq('status', 'active')
       .maybeSingle();
@@ -57,6 +57,7 @@ export async function handleLogin(request: Request) {
       return Response.json({ message: 'Email or password is incorrect' }, { status: 401 });
     }
 
+    if(user.verification?.email_required===true&&user.verification?.email!==true)throw new ApiError(403,'Verify your email before signing in. Use the Verify email / resend OTP option.');
     const roles = user.roles as UserRole[];
     if (!roles.includes(input.portal)) {
       return Response.json({ message: 'This account cannot access the selected portal' }, { status: 403 });
@@ -228,3 +229,4 @@ export async function handleModeration(request: Request, propertyId: string) {
 function methodNotAllowed(allowed: string[]) {
   return Response.json({ message: 'Method not allowed' }, { status: 405, headers: { Allow: allowed.join(', ') } });
 }
+

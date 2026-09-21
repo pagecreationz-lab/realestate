@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import {z} from 'zod';
 import {getSupabaseAdmin} from './config/supabase.js';
 import {ApiError,authenticateRequest} from './lib/api.js';
+import {emailSettings} from './email-verification.js';
+import {deliver} from './smtp.js';
 
 const digest=(s:string)=>createHash('sha256').update(s).digest('hex');
 const password=z.string().min(12).max(72).refine(v=>Buffer.byteLength(v,'utf8')<=72,'Password must not exceed 72 UTF-8 bytes');
@@ -12,9 +14,8 @@ export async function handleAccountSecurity(request:Request){
  const body=request.method==='POST'?await request.json():{};
  if(body.action==='request-reset'){
   const email=z.string().trim().email().max(254).parse(body.email).toLowerCase();
-  const key=process.env.RESEND_API_KEY,from=process.env.RESET_EMAIL_FROM,site=process.env.PASSWORD_RESET_SITE_URL;
-  if(!key||!from||!site)throw new ApiError(503,'Email password reset is not configured. Contact the administrator.');
-  const origin=new URL(site);if(origin.protocol!=='https:'&&!(origin.protocol==='http:'&&origin.hostname==='localhost'))throw new ApiError(503,'Password reset URL is not configured securely.');
+  const settings=await emailSettings();
+  const origin=new URL(settings.site_url);
   const {data:user}=checked(await db.from('users').select('id,roles').eq('email',email).eq('status','active').maybeSingle());
   const message='If this is an eligible customer account, a reset link will be emailed. Please allow a few minutes before requesting another.';
   if(user&&user.roles.includes('user')&&!user.roles.some((r:string)=>['admin','broker'].includes(r))){
@@ -23,8 +24,7 @@ export async function handleAccountSecurity(request:Request){
    if(issued){
     const link=new URL('/reset-password',origin);link.hash=new URLSearchParams({user:user.id,token}).toString();
     try{
-     const sent=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','User-Agent':'EaseHome/1.0'},body:JSON.stringify({from,to:[email],subject:'Reset your EASE HOME password',text:`You requested a password reset. Open this link within 20 minutes: ${link.toString()}\nIf you did not request this, ignore this email.`}),signal:AbortSignal.timeout(10000)});
-     if(!sent.ok)console.error('Password reset email delivery failed:',sent.status);
+     await deliver(email,'Reset your EASE HOME password',`You requested a password reset. Open this link within 20 minutes: ${link.toString()}\nIf you did not request this, ignore this email.`,settings);
     }catch{console.error('Password reset email service unavailable');}
    }
   }

@@ -1,4 +1,6 @@
-import {test} from 'node:test';
+import {test,mock} from 'node:test';
+import nodemailer from 'nodemailer';
+import {storedMailSettings} from './smtp-fixture';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
@@ -8,6 +10,25 @@ import {env} from '../server/config/env';
 import {authenticateRequest,credentialVersion} from '../server/lib/api';
 import {handleAccountSecurity} from '../server/account-security';
 
+test('password reset uses shared SMTP settings and rejects missing configuration',async()=>{
+ const previous={...env},originalFetch=globalThis.fetch;
+ env.supabaseUrl='https://reset-test.invalid';env.supabaseSecretKey='test';env.jwtSecret='test-reset-secret';
+ let sent:Record<string,unknown>={},configured=true;
+ const transport=mock.method(nodemailer,'createTransport',()=>({sendMail:async(message:Record<string,unknown>)=>{sent=message;},close(){}}));
+ globalThis.fetch=async(url)=>{
+  if(String(url).includes('email_verification_settings'))return Response.json(configured?storedMailSettings():{});
+  if(String(url).includes('/users'))return Response.json({id:randomUUID(),roles:['user']});
+  assert.match(String(url),/account_issue_reset/);return Response.json(true);
+ };
+ const request=()=>new Request('http://localhost/api/community?resource=account',{method:'POST',body:JSON.stringify({action:'request-reset',email:'user@example.test'})});
+ try{
+  assert.equal((await handleAccountSecurity(request())).status,200);
+  assert.equal(sent.from,'accounts@example.test');assert.equal(sent.to,'user@example.test');assert.match(String(sent.text),/https:\/\/example.test\/reset-password#user=/);
+  assert.equal(transport.mock.callCount(),1);
+  configured=false;
+  await assert.rejects(handleAccountSecurity(request()),/Super Admin to save SMTP settings/);
+ }finally{transport.mock.restore();globalThis.fetch=originalFetch;Object.assign(env,previous);}
+});
 test('customer reset expiry, one-time consumption, role restrictions and profile isolation',async()=>{
  const pg=new PGlite();try{
   await pg.exec(`create role anon;create role authenticated;create role service_role;
@@ -50,3 +71,4 @@ test('password changes revoke sessions and professionals cannot change passwords
   await assert.rejects(authenticateRequest(request()),/Session expired/);
  }finally{globalThis.fetch=originalFetch;Object.assign(env,config);}
 });
+

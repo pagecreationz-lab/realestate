@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import {Readable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
+import {handleDriveCallback,handleDriveMedia} from './google-drive.js';
 import {handleCommunity} from './community.js';
 import {handleSocial,handleVideoUpload} from './social.js';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
@@ -27,7 +30,7 @@ async function toWebRequest(request: IncomingMessage) {
 async function send(response: Response, target: ServerResponse) {
   target.statusCode = response.status;
   response.headers.forEach((value, name) => target.setHeader(name, value));
-  target.end(Buffer.from(await response.arrayBuffer()));
+  if(response.body)await pipeline(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream),target);else target.end();
 }
 
 createServer(async (request, response) => {
@@ -37,7 +40,9 @@ createServer(async (request, response) => {
     let result: Response;
     let match: RegExpMatchArray | null;
 
-    if (pathname === '/api/health') result = handleHealth();
+    if (pathname === '/api/drive-callback') result = await handleDriveCallback(webRequest);
+    else if (pathname === '/api/drive-media') result = await handleDriveMedia(webRequest);
+    else if (pathname === '/api/health') result = handleHealth();
     else if (pathname === '/api/community') result = await handleCommunity(webRequest);
     else if (pathname === '/api/social') result = await handleSocial(webRequest);
     else if (pathname === '/api/video-upload') result = await handleVideoUpload(webRequest);
