@@ -7,7 +7,15 @@ import {PGlite} from '@electric-sql/pglite';
 import {env} from '../server/config/env';
 import {credentialVersion} from '../server/lib/api';
 import {handleCommunity} from '../server/community';
-import {validateDriveMedia,encryptDriveToken,handleDriveSettings,handleDriveCallback,driveMediaUrl,handleDriveMedia} from '../server/google-drive';
+import {driveApiError,validateDriveMedia,encryptDriveToken,handleDriveSettings,handleDriveCallback,driveMediaUrl,handleDriveMedia} from '../server/google-drive';
+
+test('Drive failures distinguish API activation, quota and permissions without leaking provider messages',async()=>{
+ for(const [reason,expected] of [['accessNotConfigured','API is disabled'],['SERVICE_DISABLED','API is disabled'],['storageQuotaExceeded','no available storage'],['insufficientPermissions','required Drive permissions'],['domainPolicy','administrator has blocked']]){
+  const result=await driveApiError(Response.json({error:{message:'private-provider-details',errors:[{reason}],details:[{reason}]}},{status:403}));
+  assert.ok(result.message.includes(expected));assert.ok(!result.message.includes('private-provider-details'));
+ }
+ assert.match((await driveApiError(new Response('private-provider-details',{status:502}))).message,/HTTP 502/);
+});
 
 function setup(){
  const previous={...env},fetch=globalThis.fetch;
@@ -36,6 +44,7 @@ test('every public account category receives a private Drive upload, not a Supab
   if(url.includes('/upload/drive/')){
    assert.deepEqual(body.parents,['uploader-folder']);assert.equal(body.appProperties.easehome_owner,s.user.id);assert.equal(body.mimeType,'video/mp4');assert.equal(body.id,'new-file');
    assert.equal(new Headers(options?.headers).get('X-Upload-Content-Length'),'128');
+   assert.equal(new Headers(options?.headers).get('Origin'),'https://app.example.test');
    return new Response(null,{headers:{Location:'https://www.googleapis.com/upload/drive/v3/files?upload_id=session'}});
   }
   if(url.includes('creator_media')){
@@ -68,17 +77,17 @@ test('Drive file completion validates size, MIME and ownership',async()=>{
 });
 
 test('only Super Admin can connect; callback is browser-bound, single-use and stores encrypted credentials',async()=>{
- const s=setup();let nonce='',consumed=false,saved:Record<string,string>={};
+ const s=setup();let nonce='',consumed=false,googleAccount='google-account',saved:Record<string,string>={};
  globalThis.fetch=async(input,options)=>{
   const url=String(input);
   if(url.includes('/users'))return Response.json(s.user);
   if(url.includes('drive_oauth_states')){
-   if(options?.method==='POST'){nonce=JSON.parse(String(options.body)).id;return Response.json(null);}
+   if(options?.method==='POST'){nonce=JSON.parse(String(options.body)).id;consumed=false;return Response.json(null);}
    if(url.includes('select=')){const result=consumed?null:{id:nonce};consumed=true;return Response.json(result);}
    return Response.json(null);
   }
   if(url.includes('oauth2.googleapis.com'))return Response.json({access_token:'access',refresh_token:'new-private-refresh',scope:'https://www.googleapis.com/auth/drive.file'});
-  if(url.includes('/about?'))return Response.json({user:{permissionId:'google-account',emailAddress:'easehome@example.test'}});
+  if(url.includes('/about?'))return Response.json({user:{permissionId:googleAccount,emailAddress:'easehome@example.test'}});
   if(url.includes('drive_connection'))return Response.json(s.connection);
   if(url.includes('/files/root'))return Response.json({id:'root',trashed:false});
   if(url.includes('drive_save_connection')){saved=JSON.parse(String(options?.body));return Response.json(null);}
@@ -96,6 +105,14 @@ test('only Super Admin can connect; callback is browser-bound, single-use and st
   const response=await handleDriveCallback(request);assert.equal(response.status,200);assert.equal(saved.p_google_user,'google-account');assert.notEqual(saved.p_token,'new-private-refresh');
   assert.ok(!(await response.text()).includes('new-private-refresh'));
   assert.equal((await handleDriveCallback(request)).status,400);
+  const restart=async()=>{
+   const next=await (await handleDriveSettings(s.request('drive-settings',{action:'connect'}))).json();
+   return new Request('https://app.example.test/api/drive-callback?'+new URLSearchParams({state:new URL(next.url).searchParams.get('state')!,code:'test-code'}),{headers:{Cookie:'easehome_drive_state='+nonce}});
+  };
+  googleAccount='another-account';
+  const switched=await handleDriveCallback(await restart());assert.equal(switched.status,400);assert.match(await switched.text(),/original EASE HOME/);
+  googleAccount='google-account';const demotedRequest=await restart();s.user.roles=['user'];
+  assert.equal((await handleDriveCallback(demotedRequest)).status,403);
  }finally{s.restore();}
 });
 
@@ -118,6 +135,8 @@ test('Drive media streams byte ranges and denies expired, rejected, deleted and 
   post.status='approved';post.deleted_at=new Date().toISOString();assert.equal((await handleDriveMedia(request())).status,404);
   post.deleted_at=null;post.edit_version=1;assert.equal((await handleDriveMedia(request())).status,404);
   assert.equal((await handleDriveMedia(new Request('https://app.example.test/api/drive-media?token=invalid'))).status,403);assert.equal(downloaded,1);
+  const expired=jwt.sign({media,post:postId,version:0,privateAccess:false},env.jwtSecret,{audience:'drive-media',expiresIn:-1});
+  assert.equal((await handleDriveMedia(new Request('https://app.example.test/api/drive-media?token='+expired))).status,403);
  }finally{s.restore();}
 });
 

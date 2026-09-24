@@ -50,20 +50,23 @@ export function decryptBank(value:string){const [iv,tag,content]=value.split('.'
 async function formatPosts(posts:Record<string,any>[],user?:SessionUser){
  if(!posts.length)return [];
  const ids=posts.map(p=>p.id);
- const [mediaResult,countsResult,authorsResult]=await Promise.all([
+ const [mediaResult,countsResult,authorsResult,commentsResult]=await Promise.all([
   db().from('creator_media').select('id,post_id,path,mime').in('post_id',ids),
   db().from('creator_post_counts').select('*').in('post_id',ids),
   db().from('users').select('id,name').in('id',[...new Set(posts.map(p=>p.author_id))]),
+  db().from('creator_posts').select('id,creator_comments(count)').in('id',ids),
  ]);
  const media=checked(mediaResult).data??[];const counts=checked(countsResult).data??[];const authors=checked(authorsResult).data??[];
+ const commentCounts=checked(commentsResult).data??[];
  const events=user?checked(await db().from('creator_events').select('post_id,kind').in('post_id',ids).eq('user_id',user.id)).data??[]:[];
  const legacy=media.filter(m=>!m.path.startsWith('drive:'));
  const urls=legacy.length?checked(await db().storage.from(BUCKET).createSignedUrls(legacy.map(m=>m.path),300)).data??[]:[];
  return posts.map(p=>({ ...p,
+  review_note:user?.roles.includes('admin')?p.review_note:undefined,
   // Phone is disclosed only after an authenticated call action.
   phone:p.author_id===user?.id?p.phone:undefined,hasPhone:Boolean(p.phone),author:authors.find(a=>a.id===p.author_id)?.name??'Creator',authorType:p.creator?.account_category==='customer'?'User':p.creator?.account_category??'Creator',creator:undefined,
   media:media.filter(m=>m.post_id===p.id).map(m=>({id:m.id,mime:m.mime,url:m.path.startsWith('drive:')?driveMediaUrl(m.id,{id:p.id,edit_version:p.edit_version},Boolean(user&&(p.author_id===user.id||user.roles.includes('admin')))):urls.find(u=>u.path===m.path)?.signedUrl??''})),
-  counts:{view:Number(counts.find(c=>c.post_id===p.id)?.views??0),like:Number(counts.find(c=>c.post_id===p.id)?.likes??0),share:Number(counts.find(c=>c.post_id===p.id)?.shares??0),save:Number(counts.find(c=>c.post_id===p.id)?.saves??0)},
+  counts:{comment:Number(commentCounts.find(c=>c.id===p.id)?.creator_comments?.[0]?.count??0),view:Number(counts.find(c=>c.post_id===p.id)?.views??0),like:Number(counts.find(c=>c.post_id===p.id)?.likes??0),share:Number(counts.find(c=>c.post_id===p.id)?.shares??0),save:Number(counts.find(c=>c.post_id===p.id)?.saves??0)},
   liked:events.some(e=>e.post_id===p.id&&e.kind==='like'),
   saved:events.some(e=>e.post_id===p.id&&e.kind==='save'),
  }));
@@ -107,10 +110,10 @@ export async function handleCommunity(request:Request){
     const post=uuid.parse(url.searchParams.get('post'));
     const {data:published}=checked(await db().from('creator_posts').select('id').eq('id',post).eq('status','approved').maybeSingle());
     if(!published)throw new ApiError(404,'Published post not found.');
-    const {data:comments}=checked(await db().from('creator_comments').select('id,user_id,body,created_at').eq('post_id',post).order('created_at',{ascending:false}).limit(50));
+    const {data:comments,count}=checked(await db().from('creator_comments').select('id,user_id,body,created_at',{count:'exact'}).eq('post_id',post).order('created_at',{ascending:false}).limit(50));
     const ids=[...new Set((comments??[]).map(c=>c.user_id))];
     const people=ids.length?checked(await db().from('users').select('id,name').in('id',ids)).data??[]:[];
-    return Response.json({comments:(comments??[]).map(c=>({...c,name:people.find(p=>p.id===c.user_id)?.name??'Community member'}))});
+    return Response.json({total:count??0,comments:(comments??[]).map(c=>({...c,name:people.find(p=>p.id===c.user_id)?.name??'Community member'}))});
    }
    if(resource==='admin-accounts')return await adminAccounts(user,url);
    if(resource==='me')return Response.json({user});
@@ -180,7 +183,7 @@ export async function handleCommunity(request:Request){
   if(action==='upload'){
    await rateLimit(user.id,'creator_media','owner_id',20,3600);
    const input=z.object({mime:z.enum(['image/jpeg','image/png','image/webp','video/mp4','video/webm']),bytes:z.number().int().positive().max(50*1024*1024)}).parse(body);
-   const id=randomUUID();const ticket=await createDriveUpload(user.id,id,input.mime,input.bytes,mediaTypes[input.mime]);const path=ticket.path;
+   const id=randomUUID();const ticket=await createDriveUpload(user.id,id,input.mime,input.bytes,mediaTypes[input.mime],request.headers.get('origin')??url.origin);const path=ticket.path;
    checked(await db().from('creator_media').insert({id,owner_id:user.id,path,mime:input.mime,bytes:input.bytes}));
    return Response.json({id,url:ticket.url,headers:ticket.headers});
   }

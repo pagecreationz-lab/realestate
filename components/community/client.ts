@@ -1,7 +1,7 @@
 import {readApiResponse} from './response';
 export type User={account_category?:string;id:string;name:string;email:string;roles:string[]};
 export function requireSignIn(post:string){location.href='/login/user?next='+encodeURIComponent('/?post='+encodeURIComponent(post));}
-export type Post={id:string;author_id:string;author:string;phone?:string;edit_version?:number;authorType?:string;post_type?:'property'|'service';service_category?:string;caption:string;location:string;intent:string;price:number;status:string;review_note?:string;created_at:string;hasPhone:boolean;liked:boolean;saved:boolean;counts:{view:number;like:number;share:number;save:number};media:{id:string;mime:string;url:string}[]};
+export type Post={id:string;author_id:string;author:string;phone?:string;edit_version?:number;authorType?:string;post_type?:'property'|'service';service_category?:string;caption:string;location:string;intent:string;price:number;status:string;review_note?:string;created_at:string;hasPhone:boolean;liked:boolean;saved:boolean;counts:{comment?:number;view:number;like:number;share:number;save:number};media:{id:string;mime:string;url:string}[]};
 export function readSession():{token:string;user:User;role:string}|null {try{return JSON.parse(localStorage.getItem('ease-home-session')||'null');}catch{return null;}}
 export async function community(resource:string,body?:unknown){
  const token=readSession()?.token;

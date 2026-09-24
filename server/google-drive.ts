@@ -34,9 +34,25 @@ async function access(){
  cachedAccess={credential:config.refresh_token_enc,token:token.access_token,expires:Date.now()+Math.max(0,Math.min(token.expires_in??3600,3600)-60)*1000};
  return {token:token.access_token,root:config.root_folder_id};
 }
+export async function driveApiError(response:Response){
+ let body:{error?:{errors?:{reason?:string}[];details?:{reason?:string}[]}}={};
+ try{body=await response.json();}catch{/* Do not expose raw Google responses or credentials. */}
+ const reasons=[...(body.error?.errors??[]),...(body.error?.details??[])].map(e=>e.reason);
+ const has=(...values:string[])=>values.some(v=>reasons.includes(v));
+ let message:string;
+ if(has('accessNotConfigured','SERVICE_DISABLED','API_DISABLED'))message='Google Drive API is disabled for the OAuth client project. In Google Cloud, select that project, open APIs & Services → Library → Google Drive API, and enable it. Wait a few minutes, then reconnect from Super Admin Settings.';
+ else if(has('storageQuotaExceeded'))message='The EASE HOME Google Drive account has no available storage. Free up Drive space or increase its storage, then reconnect.';
+ else if(has('insufficientPermissions','ACCESS_TOKEN_SCOPE_INSUFFICIENT'))message='Google did not grant the required Drive permissions. Reconnect from Super Admin Settings and allow the requested Drive file access.';
+ else if(has('appNotAuthorizedToFile')||response.status===404)message='The EASE HOME Drive folder is missing or this OAuth client cannot access it. Restore the folder and reconnect using the original Google account and OAuth client project.';
+ else if(has('domainPolicy','adminPolicyEnforced'))message='Your Google Workspace administrator has blocked this Drive integration. Ask them to allow the EASE HOME OAuth app.';
+ else if(has('rateLimitExceeded','userRateLimitExceeded','dailyLimitExceeded')||response.status===429)message='Google Drive API quota was reached. Wait and retry, or check the project quota in Google Cloud.';
+ else if(response.status===401)message='Google Drive authorization expired or was revoked. Reconnect from Super Admin Settings.';
+ else message=`Google Drive rejected the request (HTTP ${response.status}). Check that Google Drive API is enabled in the OAuth client project and that the selected account can use Drive.`;
+ return new ApiError(503,message);
+}
 async function driveFetch(token:string,path:string,init:RequestInit={}){
  let response:Response;try{response=await fetch('https://www.googleapis.com/'+path,{...init,headers:{...init.headers,Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});}catch{throw new ApiError(503,'Google Drive is temporarily unavailable. Please retry.');}
- if(!response.ok)throw new ApiError(503,response.status===401?'Reconnect Google Drive in Super Admin Settings.':'Google Drive could not complete the request. Check the connected account, folder access and available storage.');return response;
+ if(!response.ok)throw await driveApiError(response);return response;
 }
 async function jsonDrive(token:string,path:string,body?:unknown){return (await driveFetch(token,path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})).json();}
 async function newId(token:string){const data=await jsonDrive(token,'drive/v3/files/generateIds?count=1&space=drive&type=files');return fileId.parse(data.ids?.[0]);}
@@ -52,9 +68,11 @@ async function uploaderFolder(token:string,root:string,user:string){
  else{const folder=await existing.json();if(folder.trashed||!folder.parents?.includes(root))throw new ApiError(503,'Restore the uploader folder to the EASE HOME Drive folder.');}
  return id;
 }
-export async function createDriveUpload(user:string,id:string,mime:string,bytes:number,extension:string){
+export async function createDriveUpload(user:string,id:string,mime:string,bytes:number,extension:string,origin:string){
+ const website=new URL(origin);
+ if(!['http:','https:'].includes(website.protocol)||website.username||website.password||website.origin!==origin)throw new ApiError(400,'Invalid upload website origin.');
  const {token,root}=await access(),folder=await uploaderFolder(token,root,user),driveId=await newId(token);
- const response=await driveFetch(token,'upload/drive/v3/files?uploadType=resumable&fields=id',{method:'POST',headers:{'Content-Type':'application/json','X-Upload-Content-Type':mime,'X-Upload-Content-Length':String(bytes)},body:JSON.stringify({id:driveId,name:id+'.'+extension,mimeType:mime,parents:[folder],appProperties:{easehome_owner:user,easehome_media:id}})});
+ const response=await driveFetch(token,'upload/drive/v3/files?uploadType=resumable&fields=id',{method:'POST',headers:{'Content-Type':'application/json','X-Upload-Content-Type':mime,'X-Upload-Content-Length':String(bytes),Origin:origin},body:JSON.stringify({id:driveId,name:id+'.'+extension,mimeType:mime,parents:[folder],appProperties:{easehome_owner:user,easehome_media:id}})});
  const url=response.headers.get('location');if(!url||new URL(url).origin!=='https://www.googleapis.com')throw new ApiError(503,'Google Drive did not provide an upload session.');
  return {path:'drive:'+driveId,url,headers:{'Content-Type':mime}};
 }
@@ -116,7 +134,10 @@ export async function handleDriveMedia(request:Request){
   if(!file?.path.startsWith('drive:')||!post||post.deleted_at||(post.edit_version??0)!==claim.version||(!claim.privateAccess&&post.status!=='approved'))throw new ApiError(404,'Media is unavailable.');
   const range=request.headers.get('range');if(range&&!/^bytes=(\d+-\d*|-\d+)$/.test(range))throw new ApiError(416,'Unsupported byte range');
   const {token}=await access();
-  const response=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId.parse(file.path.slice(6))}?alt=media`,{method:request.method,headers:{Authorization:'Bearer '+token,...(range?{Range:range}:{})},signal:AbortSignal.timeout(25000)});
+  // Bound connection setup without aborting a video stream after a fixed playback interval.
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+  let response:Response;
+  try{response=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId.parse(file.path.slice(6))}?alt=media`,{method:request.method,headers:{Authorization:'Bearer '+token,...(range?{Range:range}:{})},signal:controller.signal});}finally{clearTimeout(timer);}
   if(!response.ok){if(response.status===416)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${file.bytes}`}});throw new ApiError(503,'Media delivery is temporarily unavailable. Please retry.');}
   const headers=new Headers({'Content-Type':file.mime,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Accept-Ranges':'bytes'});
   for(const name of ['content-length','content-range']){const value=response.headers.get(name);if(value)headers.set(name,value);}
